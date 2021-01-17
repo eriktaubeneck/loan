@@ -36,7 +36,7 @@ class LoanMonth:
         self.ending_balance = self.starting_balance - self.principle
         self.cumulative_principle = self._prev_cumulative_principle + self.principle
         self.cumulative_interest = self._prev_cumulative_interest + self.interest
-        self.cumulative_cost = self.loan.fee_amount + self.cumulative_interest
+        self.cumulative_cost = self.loan.points_fee + self.cumulative_interest
 
     @classmethod
     def first_month(cls, loan: "Loan"):
@@ -65,11 +65,11 @@ class Loan:
     down_rate: float
     years: int
     interest_rate: float
-    fee_rate: float
+    points: float
     name: str = None
     down: int = field(init=False)
     loan_amount: int = field(init=False)
-    fee_amount: int = field(init=False)
+    points_fee: int = field(init=False)
     total_interest: int = field(init=False)
     total_cost: int = field(init=False)
     payment: int = field(init=False)
@@ -78,7 +78,7 @@ class Loan:
     def __post_init__(self):
         self.down = self.price * self.down_rate
         self.loan_amount = self.price - self.down
-        self.fee_amount = self.loan_amount * self.fee_rate
+        self.points_fee = self.loan_amount * self.points * 0.01
         self.conforming = self.loan_amount <= CONFORMING_MAX
 
         self.months = {
@@ -90,7 +90,7 @@ class Loan:
                 previous_month=self.months[i-1],
             )
         self.total_interest = self.months[self.years * 12].cumulative_interest
-        self.total_cost = self.total_interest + self.fee_amount
+        self.total_cost = self.total_interest + self.points_fee
         self.payment = self.months[1].payment
 
     @classmethod
@@ -99,11 +99,11 @@ class Loan:
             price,
             years,
             interest_rate,
-            fee_rate,
+            points,
             name=None,
     ):
         down_rate = 1 - CONFORMING_MAX / price
-        return cls(price, down_rate, years, interest_rate, fee_rate, name)
+        return cls(price, down_rate, years, interest_rate, points, name)
 
     @classmethod
     def buy_points(cls, loan, points):
@@ -112,10 +112,13 @@ class Loan:
             loan.down_rate,
             loan.years,
             loan.interest_rate - 0.00125 * points,
-            loan.fee_rate + 0.01 * points,
+            loan.points + points,
             f'{loan.name} with {points} point(s)' if loan.name else None,
         )
 
+    @classmethod
+    def no_points(cls, loan):
+        return cls.buy_points(loan, -loan.points)
 
     def compare_points(self, points):
         other = self.__class__.buy_points(self, points)
@@ -123,7 +126,7 @@ class Loan:
 
     def compare(self, other: "Loan"):
         crossover = self.crossover(other)
-        upfront_cost_diff = (self.down + self.fee_amount) - (other.down + other.fee_amount)
+        upfront_cost_diff = (self.down + self.points_fee) - (other.down + other.points_fee)
         total_cost_diff = self.total_cost - other.total_cost
         reference_rate_of_return = (-total_cost_diff / upfront_cost_diff) ** (1/self.years)
 
@@ -153,74 +156,34 @@ down = 0.2
 years = 30
 
 
-# baseline = Loan(price, down, years, 0.03, 10099, name='baseline')
-# low_rate = Loan(price, down, years, 0.02625, 21437, name='low_rate')
-
-# print(f'{low_rate.compare(baseline)}')
-
-# remodel = low_rate.fees - baseline.fees
-# print(f'putting ${remodel} against remodel')
-# baseline_finance_remodel= Loan(price+remodel, (price+remodel)*0.2, years, 0.03, 10099, name='baseline_finance_remodel')
-
-# print(f'{low_rate.compare(baseline_finance_remodel)}')
-
 # loans = [
-#     Loan(price, down, years, 0.02625, 21437),
-#     Loan(price, down, years, 0.0275, 16925),
-#     Loan(price, down, years, 0.02875, 13325),
-#     Loan(price, down, years, 0.03, 10099),
-#     Loan(price, down, years, 0.03125, 7978),
-#     Loan(price, down, years, 0.0325, 7718),
-#     Loan(price, down, years, 0.03375, -1555),
-#     Loan(price, down, years, 0.035, -2093),
-#     Loan(price, down, years, 0.03625, -2928),
-#     Loan(price, down, years, 0.0375, -3763),
-#     Loan(price, down, years, 0.03875, -4550),
-#     Loan(price, down, years, 0.04, -5290),
-#     Loan(price, down, years, 0.04125, -6067),
-#     Loan(price, down, years, 0.0425, -6854),
+#     # Loan(1_000_000, down, years, 0.02825, 0.75),
+#     # Loan(1_000_000, down+0.05, years, 0.02625, 0.75),
+#     # Loan(1_000_000, down+0.1, years, 0.02625, 0.75),
+#     Loan(1_050_000, down, years, 0.02825, 0.75),
+#     Loan(1_050_000, down+0.05, years, 0.02625, 0.75),
+#     Loan.min_conforming(1_050_000, years, 0.02625, 0.75),
+#     Loan(1_100_000, down, years, 0.02825, 0.75),
+#     Loan(1_100_000, down+0.05, years, 0.02625, 0.75),
+#     # Loan.min_conforming(1_100_000, years, 0.02625, 0.75),
+#     Loan(1_150_000, down, years, 0.02825, 0.75),
+#     Loan(1_150_000, down+0.05, years, 0.02625, 0.75),
+#     # Loan.min_conforming(1_150_000, years, 0.02625, 0.75),
 # ]
 
-loans = [
-    # Loan(1_000_000, down, years, 0.02825, 0.0075),
-    # Loan(1_000_000, down+0.05, years, 0.02625, 0.0075),
-    # Loan(1_000_000, down+0.1, years, 0.02625, 0.0075),
-    Loan(1_050_000, down, years, 0.02825, 0.0075),
-    Loan(1_050_000, down+0.05, years, 0.02625, 0.0075),
-    Loan.min_conforming(1_050_000, years, 0.02625, 0.0075),
-    Loan(1_100_000, down, years, 0.02825, 0.0075),
-    Loan(1_100_000, down+0.05, years, 0.02625, 0.0075),
-    # Loan.min_conforming(1_100_000, years, 0.02625, 0.0075),
-    Loan(1_150_000, down, years, 0.02825, 0.0075),
-    Loan(1_150_000, down+0.05, years, 0.02625, 0.0075),
-    # Loan.min_conforming(1_150_000, years, 0.02625, 0.0075),
-]
-
-for loan in loans:
-    print(loan)
-    print('')
-
-print('\n compare points')
-l = loans[-2]
-
-print(Loan.buy_points(l, 1))
-print(l.compare_points(1))
-
-
-# baseline = loans[6]
-
 # for loan in loans:
-#     if loan != baseline:
-#         print(loan.compare(baseline))
+#     print(loan)
+#     print('')
 
-# print(loans[0].compare(loans[1]))
+# print('\n compare points')
+# l = loans[-2]
 
-# l0, l1 = loans[0], loans[7]
-# print(l1.compare(l0))
+# print(Loan.buy_points(l, 1))
+# print(l.compare_points(1))
 
-# print(f"rate0: {l0.interest_rate}, rate1: {l1.interest_rate}")
-# for i in range(1, 100, 10):
-#     print(f"month: {i}, cost0: {l0.months[i].cumulative_cost}, cost1: {l1.months[i].cumulative_cost}")
-
-# for loan, loan2 in zip(loans, loans[1:]):
-#     print(loan2.compare(loan))
+loan = Loan.min_conforming(1_020_000, years, 0.2625, 0.75)
+baseline = Loan.no_points(loan)
+print(baseline.compare_points(0.75))
+print(baseline.compare_points(1.5))
+print(baseline.compare_points(2))
+print(baseline.compare_points(2.5))
