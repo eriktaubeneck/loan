@@ -40,13 +40,15 @@ class LoanMonth:
 
     @classmethod
     def first_month(cls, loan: "Loan"):
-        return cls(
+        m = cls(
             loan=loan,
             month_number=1,
             starting_balance=loan.price - loan.down,
             _prev_cumulative_principle=0,
             _prev_cumulative_interest=0,
         )
+        m.principle = m.principle + m.loan.down
+        return m
 
     @classmethod
     def build_from_month(cls, loan: "Loan", previous_month: "LoanMonth"):
@@ -159,50 +161,25 @@ class Loan:
 
 
 if __name__ == "__main__":
-
-    down = 0.2
     years = 30
 
-    # compare different escalation amounts
-    loans = [
-        Loan(1_050_000, down, years, 0.02825, 0.75),
-        Loan(1_065_000, down, years, 0.02825, 0.75),
-        Loan(1_080_000, down, years, 0.02825, 0.75),
-        Loan(1_095_000, down, years, 0.02825, 0.75),
-        Loan(1_110_000, down, years, 0.02825, 0.75),
-        Loan(1_125_000, down, years, 0.02825, 0.75),
-        Loan(1_140_000, down, years, 0.02825, 0.75),
-        Loan(1_155_000, down, years, 0.02825, 0.75),
-        Loan(1_170_000, down, years, 0.02825, 0.75),
-        Loan(1_185_000, down, years, 0.02825, 0.75),
-        Loan(1_200_000, down, years, 0.02825, 0.75),
-    ]
-
-    baseline = loans[0]
-
-    for loan in loans:
-        print(loan)
-        print(loan.compare(baseline))
-        print('')
-
-
     # compare buying points
-    # loan = Loan(1_200_000, 0.2, years, 0.02625, 0.75)
-    # baseline = Loan.no_points(loan)
+    loan = Loan(1_200_000, 0.2, years, 0.02625, 0.75)
+    baseline = Loan.no_points(loan)
 
-    # print(baseline)
-    # print(baseline.compare_points(-0.75))
-    # print(baseline.compare_points(0.75))
-    # print(baseline.compare_points(1.5))
-    # print(baseline.compare_points(2))
-    # print(baseline.compare_points(2.5))
+    print(baseline)
+    print(baseline.compare_points(-0.75))
+    print(baseline.compare_points(0.75))
+    print(baseline.compare_points(1.5))
+    print(baseline.compare_points(2))
+    print(baseline.compare_points(2.5))
 
 
     # compare min conforming vs 20% down
-    # price = 1_050_000
+    price = 1_050_000
 
-    # loan1 = Loan.min_conforming(price, years, 0.02625, 0.75)
-    # loan2 = Loan(price, 0.2, years, 0.02875, 0.75)
-    # print(loan1)
-    # print(loan2)
-    # print(loan2.compare(loan1))
+    loan1 = Loan.min_conforming(price, years, 0.02625, 0.75)
+    loan2 = Loan(price, 0.2, years, 0.02875, 0.75)
+    print(loan1)
+    print(loan2)
+    print(loan2.compare(loan1))
